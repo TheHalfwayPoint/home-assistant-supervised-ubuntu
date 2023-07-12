@@ -1,0 +1,70 @@
+name: Build Modified Home Assistant Installer
+
+on:
+  release:
+    types: [published]
+  repositories:
+      - home-assistant/supervised-installer
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Download HA deb
+      uses: actions/github-script@v3
+      with: 
+        script: |
+          let assets = await github.rest.repos.getReleaseByTag({
+            owner: 'home-assistant',
+            repo: 'supervised-installer',
+            tag: ${{ github.event.release.tag_name }}  
+          })
+          let downloadUrl = assets.data.assets[0].browser_download_url
+          core.setOutput('deb_download_url', downloadUrl)
+
+    - name: Download and extract deb
+      run: |
+        curl -L ${{ steps.download-ha-deb.outputs.deb_download_url }} -o ha.deb
+        ar x ha.deb
+
+    - name: Modify contents
+      run: |
+        ar x homeassistant-supervised.deb
+        FILES=$(tar Jxvf control.tar.xz)
+
+        contents=$(cat control.txt)
+        contents=$(echo "$contents" | sed 's/systemd-resolved//g')
+        echo "$contents" > control.txt
+
+        tar Jcf control.tar.xz $FILES  
+        ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
+
+    - name: Re-package deb
+      run: |
+        tar Jcf control.tar.xz $FILES
+        ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACTIONS_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACTIONS_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} 
+        asset_path: ./homeassistant-modified.deb
+        asset_name: homeassistant-modified.deb
+        asset_content_type: application/vnd.debian.binary-package
