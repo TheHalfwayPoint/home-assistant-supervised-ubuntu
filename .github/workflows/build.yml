@@ -15,10 +15,7 @@ jobs:
     - name: Download HA deb
       run: | 
         url="https://github.com/home-assistant/supervised-installer/releases/latest/download/homeassistant-supervised.deb"
-        curl -L -o ha.deb $url
-
-    - name: Extract deb
-      run: ar x ha.deb
+        curl -L -o homeassistant-supervised.deb $url
 
     - name: Modify contents  
       run: |
