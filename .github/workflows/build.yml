@@ -22,9 +22,9 @@ jobs:
         ar x homeassistant-supervised.deb
         FILES=$(tar Jxvf control.tar.xz)
         
-        contents=$(cat control.txt)
+        contents=$(cat control)
         contents=$(echo "$contents" | sed 's/systemd-resolved//g')  
-        echo "$contents" > control.txt
+        echo "$contents" > control
         
         tar Jcf control.tar.xz $FILES
         ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
