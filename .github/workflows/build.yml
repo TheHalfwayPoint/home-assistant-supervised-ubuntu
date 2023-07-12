@@ -28,23 +28,23 @@ jobs:
         
         tar Jcf control.tar.xz $FILES
         ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
-
+        
+    - id: get-tag 
+      run: echo "::set-output name=tag::v${{ github.run_number }}"
+      
     - id: create_release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        tag_name: ${{ steps.get-tag.outputs.tag }}
+        release_name: Release ${{ steps.get-tag.outputs.tag }}
         draft: false
         prerelease: false
 
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
+    - uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }} 
+        upload_url: ${{ steps.create_release.outputs.upload_url }}  
         asset_path: ./homeassistant-modified.deb
-        asset_name: homeassistant-modified.deb
-        asset_content_type: application/vnd.debian.binary-package
