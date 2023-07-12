@@ -1,10 +1,10 @@
 name: Build Modified Home Assistant Installer
 
+
 on:
   release:
-    types: [published]
-  repositories:
-      - home-assistant/supervised-installer
+    types:
+      - published
 
 jobs:
 
