@@ -1,7 +1,5 @@
-name: Build Modified Home Assistant Installer
-
-
-on:
+name: Build Home Assistant Installer
+on: 
   workflow_dispatch:
 
 jobs:
@@ -11,43 +9,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
     - uses: actions/checkout@v2
 
     - name: Download HA deb
-      uses: actions/github-script@v3
-      with: 
-        script: |
-          let assets = await github.rest.repos.getReleaseByTag({
-            owner: 'home-assistant',
-            repo: 'supervised-installer',
-            tag: ${{ github.event.release.tag_name }}  
-          })
-          let downloadUrl = assets.data.assets[0].browser_download_url
-          core.setOutput('deb_download_url', downloadUrl)
+      run: | 
+        url="https://github.com/home-assistant/supervised-installer/releases/latest/download/homeassistant-supervised.deb"
+        curl -L -o ha.deb $url
 
-    - name: Download and extract deb
-      run: |
-        curl -L ${{ steps.download-ha-deb.outputs.deb_download_url }} -o ha.deb
-        ar x ha.deb
+    - name: Extract deb
+      run: ar x ha.deb
 
-    - name: Modify contents
+    - name: Modify contents  
       run: |
         ar x homeassistant-supervised.deb
         FILES=$(tar Jxvf control.tar.xz)
-
+        
         contents=$(cat control.txt)
-        contents=$(echo "$contents" | sed 's/systemd-resolved//g')
+        contents=$(echo "$contents" | sed 's/systemd-resolved//g')  
         echo "$contents" > control.txt
-
-        tar Jcf control.tar.xz $FILES  
-        ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
-
-    - name: Re-package deb
-      run: |
+        
         tar Jcf control.tar.xz $FILES
         ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
 
-    - name: Create Release
+    - id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.ACTIONS_TOKEN }}
@@ -57,7 +42,7 @@ jobs:
         draft: false
         prerelease: false
 
-    - name: Upload Release Asset 
+    - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.ACTIONS_TOKEN }}
