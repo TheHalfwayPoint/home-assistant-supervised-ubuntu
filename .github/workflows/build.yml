@@ -2,9 +2,7 @@ name: Build Modified Home Assistant Installer
 
 
 on:
-  release:
-    types:
-      - published
+  workflow_dispatch:
 
 jobs:
 
