@@ -5,62 +5,67 @@ on:
 jobs:
 
   build:
-
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v2
 
-    - uses: actions/checkout@v2
+      - name: Download HA deb
+        run: | 
+          url="https://github.com/home-assistant/supervised-installer/releases/latest/download/homeassistant-supervised.deb"
+          curl -L -o homeassistant-supervised.deb $url
 
-    - name: Download HA deb
-      run: | 
-        url="https://github.com/home-assistant/supervised-installer/releases/latest/download/homeassistant-supervised.deb"
-        curl -L -o homeassistant-supervised.deb $url
+      - name: Modify contents  
+        run: |
+          ar x homeassistant-supervised.deb
+          FILES=$(tar Jxvf control.tar.xz)
+          
+          contents=$(cat control)
+          contents=$(echo "$contents" | sed 's/systemd-resolved//g')
+          echo "$contents" > control
+          
+          tar Jcf control.tar.xz $FILES
+          ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
 
-    - name: Modify contents  
-      run: |
-        ar x homeassistant-supervised.deb
-        FILES=$(tar Jxvf control.tar.xz)
-        
-        contents=$(cat control)
-        contents=$(echo "$contents" | sed 's/systemd-resolved//g')
-        echo "$contents" > control
-        
-        tar Jcf control.tar.xz $FILES
-        ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
+      - id: get-version
+        run: echo "::set-output name=version::v${{ github.run_number }}"
 
-    - id: get-version
-      run: echo "::set-output name=version::v${{ github.run_number }}"
+      - name: Create Release
+        id: create_release
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{owner}/{repo}/releases
+          draft: false
+          prerelease: false
+          tag_name: ${{ steps.get-version.outputs.version }}
+          name: Release ${{ steps.get-version.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create Release
-      id: create_release
-      uses: octokit/request-action@v2.x
-      with:
-        route: POST /repos/{owner}/{repo}/releases
-        owner: ${{ github.repository_owner }}
-        repo: ${{ github.event.repository.name }}
-        tag_name: ${{ steps.get-version.outputs.version }}
-        name: Release ${{ steps.get-version.outputs.version }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Release Asset
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const fs = require('fs');
+            const github = require("@actions/github");
+            const octokit = github.getOctokit( process.env.GITHUB_TOKEN )
 
-    - name: Upload Release Asset
-      uses: actions/github-script@v4
-      with:
-        script: |
-          const fs = require('fs');
-          const assetPath = './homeassistant-modified.deb';
-          const assetName = require('path').basename(assetPath);
-          const stat = fs.statSync(assetPath);
-          const upload_url = '${{ steps.create_release.outputs.data.upload_url }}';
-          const release = await github.request(upload_url, {
-            headers: {
-              'content-type': 'application/octet-stream',
-              'content-length': stat.size
-            },
-            name: assetName,
-            data: fs.readFileSync(assetPath)
-          });
-          console.log(JSON.stringify(release));
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            const releaseId = ${{ steps.create_release.outputs.id }};
+            const assetPath = './homeassistant-modified.deb';
+            const assetName = require('path').basename(assetPath);
+            const stat = fs.statSync(assetPath);
+            const file = fs.readFileSync(assetPath);
+
+            await octokit.rest.repos.uploadReleaseAsset({
+              owner: context
+              repo: context.repo.repo,
+              release_id: releaseId,
+              data: file,
+              name: assetName,
+              headers: {
+                'content-type': 'application/octet-stream',
+                'content-length': stat.size,
+              },
+            });
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
