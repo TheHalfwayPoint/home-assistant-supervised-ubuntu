@@ -12,7 +12,8 @@ jobs:
       uses: octokit/request-action@v2.x
       with:
         route: GET /repos/home-assistant/supervised-installer/releases/latest
-        
+      env:
+        GITHUB_TOKEN: ${{ GITHUB.TOKEN }}
     - name: Extract version
       id: extract_version  
       run: |
