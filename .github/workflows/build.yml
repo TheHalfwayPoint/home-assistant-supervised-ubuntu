@@ -1,6 +1,6 @@
-name: Build Home Assistant Installer 
+name: Build and Release Home Assistant
 
-on:
+on: 
   workflow_dispatch:
 
 jobs:
@@ -12,25 +12,19 @@ jobs:
     steps:
 
     - uses: actions/checkout@v2
-      
+
     - name: Download HA deb
       run: |
         url="https://github.com/home-assistant/supervised-installer/releases/latest/download/homeassistant-supervised.deb"
         curl -L -o homeassistant-supervised.deb $url
 
-    - name: Modify contents
+    - name: Modify deb
       run: |
         ar x homeassistant-supervised.deb
         FILES=$(tar Jxvf control.tar.xz)
         sed -i '/systemd-resolved/d' control
-        tar Jcf control.tar.xz $FILES  
+        tar Jcf control.tar.xz $FILES
         ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
-
-    - name: Upload deb artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: homeassistant-modified.deb
-        path: homeassistant-modified.deb
 
     - name: Get current version
       id: get_version
@@ -38,8 +32,23 @@ jobs:
         version=$(curl -s https://github.com/home-assistant/supervised-installer/releases/latest | grep -o "tag/.*\"" | cut -d/ -f3 | tr -d \")
         echo ::set-output name=version::${version}
 
-    - name: Release
+    - name: Create git tag
+      uses: actions/github-script@v6
+      with: 
+        github-token: ${{secrets.GITHUB_TOKEN}}
+        script: |
+          const { data } = await github.git.createTag({
+            ...context.repo,
+            tag: '${{ steps.get_version.outputs.version }}',
+            message: 'Release ${{ steps.get_version.outputs.version }}',
+            object: '${{ github.sha }}',
+            type: 'commit',
+          })
+
+    - name: Release modified deb
       uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ steps.get_version.outputs.version }}
         files: homeassistant-modified.deb
