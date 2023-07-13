@@ -1,4 +1,4 @@
-name: Build and Release Home Assistant
+name: Build and Release Modified Home Assistant
 
 on: 
   workflow_dispatch:
