@@ -49,6 +49,6 @@ jobs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             release_id: release.data.id,
-            name: "app.zip",
+            name: "homeassistant-modified.deb",
             data: await fs.readFileSync("homeassistant-modified.deb")
           });
