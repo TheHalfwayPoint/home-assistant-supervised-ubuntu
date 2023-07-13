@@ -33,22 +33,8 @@ jobs:
         echo ::set-output name=version::${version}
 
     - name: Upload release attachment
-      uses: actions/github-script@v4
-      with:
-        script: |
-          const fs = require('fs');
-          const tag = context.ref.replace("refs/tags/", "");
-          // Get release for this tag
-          const release = await github.repos.getReleaseByTag({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            tag
-          });
-          // Upload the release asset
-          await github.repos.uploadReleaseAsset({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            release_id: release.data.id,
-            name: "homeassistant-modified.deb",
-            data: await fs.readFileSync("homeassistant-modified.deb")
-          });
+      run: |
+        gh release create v1 homeassistant-modified.deb
+      env:
+        GITHUB_TOKEN: ${{ GITHUB.TOKEN }}
+      shell: bash
