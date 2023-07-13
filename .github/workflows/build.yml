@@ -34,15 +34,21 @@ jobs:
 
     - name: Create git tag
       uses: actions/github-script@v6
-      with: 
+      with:
         github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
-          const { data } = await github.git.createTag({
+          const octokit = require('@octokit/core')()
+          octokit.authenticate({
+            type: 'token',
+            token: process.env.GITHUB_TOKEN
+          })
+    
+          await octokit.git.createTag({
             ...context.repo,
             tag: '${{ steps.get_version.outputs.version }}',
             message: 'Release ${{ steps.get_version.outputs.version }}',
             object: '${{ github.sha }}',
-            type: 'commit',
+            type: 'commit'
           })
 
     - name: Release modified deb
