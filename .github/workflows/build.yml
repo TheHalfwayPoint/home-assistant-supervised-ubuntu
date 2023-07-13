@@ -24,17 +24,27 @@ jobs:
         FILES=$(tar Jxvf control.tar.xz)
         sed -i '/systemd-resolved/d' control
         tar Jcf control.tar.xz $FILES
-        ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
+        ar rcs homeassistant-supervised-modified.deb debian-binary control.tar.xz data.tar.xz
 
-    - name: Get current version
-      id: get_version
+
+    - name: Get latest release
+      id: get_latest_release
+      uses: octokit/request-action@v2.x
+      with:
+        route: GET /repos/home-assistant/supervised-installer/releases/latest
+      env:
+        GITHUB_TOKEN: ${{ GITHUB.TOKEN }}
+
+    - name: Extract version
+      id: extract_version  
       run: |
-        version=$(curl -s https://github.com/home-assistant/supervised-installer/releases/latest | grep -o "tag/.*\"" | cut -d/ -f3 | tr -d \")
-        echo ::set-output name=version::${version}
+        VERSION=${{ fromJson(steps.get_latest_release.outputs.data).tag_name }}
+        VERSION=${VERSION#v}
+        echo "::set-output name=version::$VERSION"
 
     - name: Upload release attachment
       run: |
-        gh release create ${{ steps.get_version.outputs.version }} homeassistant-modified.deb
+        gh release create ${{ steps.extract_version.outputs.version }} homeassistant-supervised-modified.deb
       env:
         GITHUB_TOKEN: ${{ GITHUB.TOKEN }}
       shell: bash
