@@ -32,29 +32,23 @@ jobs:
         version=$(curl -s https://github.com/home-assistant/supervised-installer/releases/latest | grep -o "tag/.*\"" | cut -d/ -f3 | tr -d \")
         echo ::set-output name=version::${version}
 
-    - name: Create git tag
-      uses: actions/github-script@v6
+    - name: Upload release attachment
+      uses: actions/github-script@v4
       with:
-        github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
-          const octokit = require('@octokit/core')()
-          octokit.authenticate({
-            type: 'token',
-            token: process.env.GITHUB_TOKEN
-          })
-    
-          await octokit.git.createTag({
-            ...context.repo,
-            tag: '${{ steps.get_version.outputs.version }}',
-            message: 'Release ${{ steps.get_version.outputs.version }}',
-            object: '${{ github.sha }}',
-            type: 'commit'
-          })
-
-    - name: Release modified deb
-      uses: softprops/action-gh-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.get_version.outputs.version }}
-        files: homeassistant-modified.deb
+          const fs = require('fs');
+          const tag = context.ref.replace("refs/tags/", "");
+          // Get release for this tag
+          const release = await github.repos.getReleaseByTag({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag
+          });
+          // Upload the release asset
+          await github.repos.uploadReleaseAsset({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: release.data.id,
+            name: "app.zip",
+            data: await fs.readFileSync("homeassistant-modified.deb")
+          });
