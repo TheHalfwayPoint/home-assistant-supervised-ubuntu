@@ -34,7 +34,7 @@ jobs:
 
     - name: Upload release attachment
       run: |
-        gh release create v1 homeassistant-modified.deb
+        gh release create ${{ steps.get_version.outputs.version }} homeassistant-modified.deb
       env:
         GITHUB_TOKEN: ${{ GITHUB.TOKEN }}
       shell: bash
