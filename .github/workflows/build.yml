@@ -23,28 +23,44 @@ jobs:
         FILES=$(tar Jxvf control.tar.xz)
         
         contents=$(cat control)
-        contents=$(echo "$contents" | sed 's/systemd-resolved//g')  
+        contents=$(echo "$contents" | sed 's/systemd-resolved//g')
         echo "$contents" > control
         
         tar Jcf control.tar.xz $FILES
         ar rcs homeassistant-modified.deb debian-binary control.tar.xz data.tar.xz
-        
-    - id: get-tag 
-      run: echo "::set-output name=tag::v${{ github.run_number }}"
-      
-    - id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
-      with:
-        tag_name: ${{ steps.get-tag.outputs.tag }}
-        release_name: Release ${{ steps.get-tag.outputs.tag }}
-        draft: false
-        prerelease: false
 
-    - uses: actions/upload-release-asset@v1
+    - id: get-version
+      run: echo "::set-output name=version::v${{ github.run_number }}"
+
+    - name: Create Release
+      id: create_release
+      uses: octokit/request-action@v2.x
+      with:
+        route: POST /repos/{owner}/{repo}/releases
+        owner: ${{ github.repository_owner }}
+        repo: ${{ github.event.repository.name }}
+        tag_name: ${{ steps.get-version.outputs.version }}
+        name: Release ${{ steps.get-version.outputs.version }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Release Asset
+      uses: actions/github-script@v4
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}  
-        asset_path: ./homeassistant-modified.deb
+        script: |
+          const fs = require('fs');
+          const assetPath = './homeassistant-modified.deb';
+          const assetName = require('path').basename(assetPath);
+          const stat = fs.statSync(assetPath);
+          const upload_url = '${{ steps.create_release.outputs.data.upload_url }}';
+          const release = await github.request(upload_url, {
+            headers: {
+              'content-type': 'application/octet-stream',
+              'content-length': stat.size
+            },
+            name: assetName,
+            data: fs.readFileSync(assetPath)
+          });
+          console.log(JSON.stringify(release));
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
